@@ -15,7 +15,7 @@ default_args = {
     'retries': 1,
     'retry_delay': timedelta(minutes=15),
 }
-
+##수정
 dag = DAG(
     'test2_dag',
     default_args=default_args,
