@@ -1,10 +1,10 @@
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python import PythonOperator
+from airflow import DAG
 from datetime import datetime, timedelta
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score
-from airflow.models import Variable
 
 default_args = {
     'owner': 'howdi2000',
@@ -16,12 +16,12 @@ default_args = {
     'retry_delay': timedelta(minutes=15),
 }
 
-dag = DAG{
+dag = DAG(
     'test2_dag',
-    default_args==default_args,
-    description=='A simple test2 DAG',
+    default_args=default_args,
+    description='A simple test2 DAG',
     schedule_interval=timedelta(days=1),
-}
+)
 
 def feature_engineering(**kwargs):
     from sklearn.datasets import load_iris
@@ -41,8 +41,8 @@ def feature_engineering(**kwargs):
 
 def train_model(model_name, **kwargs):
     ti = kwargs['ti']
-    x_train = pd.read_json(ti.xcom_pull(key='X_train', task_ids='feature_engineering'))
-    x_train = pd.read_json(ti.xcom_pull(key='X_test', task_ids='feature_engineering'))
+    X_train = pd.read_json(ti.xcom_pull(key='X_train', task_ids='feature_engineering'))
+    X_test = pd.read_json(ti.xcom_pull(key='X_test', task_ids='feature_engineering'))
     y_train = pd.read_json(ti.xcom_pull(key='y_train', task_ids='feature_engineering'), typ='series')
     y_test = pd.read_json(ti.xcom_pull(key='y_test', task_ids='feature_engineering'), typ='series')
 
@@ -51,9 +51,10 @@ def train_model(model_name, **kwargs):
     elif model_name == 'GradientBoosting':
         model = GradientBoostingClassifier()
     else:
-        raise ValueError('Unsupported model:' + model_name)
-    model.fit(x_train, y_train)
-    prediced = model.predict(x_test)
+        raise ValueError('Unsupported model: ' + model_name)
+
+    model.fit(X_train, y_train)
+    predicted = model.predict(X_test)
     performance = accuracy_score(y_test, predicted)
 
     ti.xcom_push(key=f'performance_{model_name}', value=performance)
@@ -61,8 +62,8 @@ def train_model(model_name, **kwargs):
 
 def selection_best_model(**kwargs):
     ti = kwargs['ti']
-    rf_performance = ti.xcom_pull(key='performance_RandomForest', task_ids='train_rf')
-    gb_performance = ti.xcom_pull(key='performance_GradientBoosting', task_ids='train_gb')
+    rf_performance = ti.xcom_pull(key='performance_RandomForest', task_ids='train_model_rf')
+    gb_performance = ti.xcom_pull(key='performance_GradientBoosting', task_ids='train_model_gb')
 
     best_model = 'RandomForest' if rf_performance > gb_performance else 'GradientBoosting'
     print(f"Best model is {best_model} with performance {max(rf_performance, gb_performance)}")
@@ -78,13 +79,13 @@ with dag:
     tr2 = PythonOperator(
         task_id='train_model_rf',
         python_callable=train_model,
-        op_args=['model_name': 'RandomForest'],
+        op_args=['RandomForest'],
         provide_context=True
     )
     tr3 = PythonOperator(
         task_id='train_model_gb',
         python_callable=train_model,
-        op_args=['model_name': 'GradientBoosting'],
+        op_args=['GradientBoosting'],
         provide_context=True
     )
     tr4 = PythonOperator(
