@@ -19,7 +19,7 @@ default_args = {
 dag = DAG{
     'test2_dag',
     default_args==default_args,
-    description='A simple test2 DAG',
+    description=='A simple test2 DAG',
     schedule_interval=timedelta(days=1),
 }
 
